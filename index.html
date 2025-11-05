@@ -59,7 +59,7 @@
     var miID = -1;
     document.getElementById("conectar").addEventListener("click",() =>{
         var direccion = document.getElementById("textoServer").value;
-        miConexion = new WebSocket ("wss://" + direccion + ":8080");
+        miConexion = new WebSocket ("wss://" + direccion);
 
         //miConexion.addEventListener("open", () =>{alert("me he conectado")})
 
