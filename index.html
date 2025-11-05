@@ -44,7 +44,7 @@
     </div>
 
     <div id="bloqueConectar">
-        <input id="textoServer" value="127.0.0.1">
+        <input id="textoServer" value="realtime-9mm7.onrender.com">
         <button id="conectar">Conectar</button>
     </div>
 </body>
@@ -59,7 +59,7 @@
     var miID = -1;
     document.getElementById("conectar").addEventListener("click",() =>{
         var direccion = document.getElementById("textoServer").value;
-        miConexion = new WebSocket ("ws://" + direccion + ":8080");
+        miConexion = new WebSocket ("wss://" + direccion + ":8080");
 
         //miConexion.addEventListener("open", () =>{alert("me he conectado")})
 
