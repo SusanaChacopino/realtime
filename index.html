@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realtime</title>
+
+    <style>
+        #juego {
+            border: 1px solid black;
+            width: 500px;
+            height: 500px;
+            position: relative;
+        }
+        .jugador {
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            position: absolute;
+            left: 0px;
+            top: 0px;
+            color: white;             
+            font-size: 12px;    
+            text-align: center;
+            line-height: 20px;  
+        }
+
+        #manzana {
+            width: 20px;
+            height: 20px;
+            background-color: green;
+            position: absolute;
+            border-radius: 50%;
+            display:none; /*Oculta la manzana en un principio*/
+        }
+    </style>
+</head>
+<body>
+    <h1>Realtime:</h1>
+    
+    <div id="juego">
+        <div class="jugador" id="plantilla"></div>
+        <div id = "manzana"></div>
+    </div>
+
+    <div id="bloqueConectar">
+        <input id="textoServer" value="127.0.0.1">
+        <button id="conectar">Conectar</button>
+    </div>
+</body>
+
+<script>
+    //Codigo
+    var jugadorBlueprint = document.getElementById("plantilla");
+    jugadorBlueprint.remove();
+
+    //Conectar al servidor
+    var miConexion;
+    var miID = -1;
+    document.getElementById("conectar").addEventListener("click",() =>{
+        var direccion = document.getElementById("textoServer").value;
+        miConexion = new WebSocket ("ws://" + direccion + ":8080");
+
+        //miConexion.addEventListener("open", () =>{alert("me he conectado")})
+
+        miConexion.addEventListener("message", (mensaje)=>{
+            mensaje = JSON.parse(mensaje.data.toString());
+            //alert(mensaje.data.toString());
+            if (mensaje.tipo == "new"){
+                //el primer "new" que me llega soy yo
+                    //asi sabre mi id
+                if(miID == -1) miID = mensaje.datos.id;
+                //alguien nuevo ha llegado... crearlo en mi escena
+                nuevoJugador = jugadorBlueprint.cloneNode(); //clono prefab
+                nuevoJugador.id = mensaje.datos.id;
+                nuevoJugador.dataset.posy = mensaje.datos.posy;
+                nuevoJugador.dataset.posx = mensaje.datos.posx;
+                nuevoJugador.style.top = mensaje.datos.posy + "px";
+                nuevoJugador.style.left = mensaje.datos.posx + "px";
+                nuevoJugador.innerHTML = mensaje.datos.puntos;
+
+                document.getElementById("juego").appendChild(nuevoJugador);
+            }
+            else if(mensaje.tipo == "delete"){
+                //alguien se ha ido... quitarlo de mi escena
+                document.getElementById(mensaje.datos).remove();
+            }
+            else if (mensaje.tipo == "mover"){
+                jugadorAMover = document.getElementById(mensaje.datos.id);
+                jugadorAMover.dataset.dir = mensaje.datos.dir;
+                jugadorAMover.dataset.posy = mensaje.datos.posy;
+                jugadorAMover.dataset.posx = mensaje.datos.posx;
+            }
+            //posicion y creacion de la fruta
+            else if (mensaje.tipo == "NuevaFruta"){
+                var manzana = document.getElementById("manzana");
+                manzana.style.left = mensaje.datos.posx + "px";
+                manzana.style.top = mensaje.datos.posy + "px";
+
+            }
+            //nueva puntuacion de algun jugador
+            else if (mensaje.tipo == "nuevaPuntuacion"){
+                var jugador = document.getElementById(mensaje.datos.id);
+                if (jugador){
+                    jugador.innerHTML = mensaje.datos.puntos;
+                }
+            }
+        })
+    })
+
+    // ---------- (lo de abajo es local luego lo movemos al resvidor)-------
+
+    document.addEventListener("keydown", 
+    (evento)=>{
+        //avisar al server de que me quiero mover
+        var yo =  document.getElementById(miID);
+        mensaje={
+            tipo:"mover",
+            datos: {
+                id: miID,
+                posx: yo.dataset.posx,
+                posy: yo.dataset.posy,
+                dir:evento.key
+            }
+        }
+        miConexion.send(JSON.stringify(mensaje));
+    })
+
+    document.addEventListener("keyup", 
+    (evento)=>{
+        var yo =  document.getElementById(miID);
+        mensaje={
+            tipo:"mover",
+            datos: {
+                id: miID,
+                posx: yo.dataset.posx,
+                posy: yo.dataset.posy,
+                dir:"0"
+            }
+        }
+        miConexion.send(JSON.stringify(mensaje));
+    })
+
+    //animar automaticamente la posicion del jugador
+    setInterval(()=>{
+        //buscar todos los jugadores (div hijos de la clase "jugador")
+        var listaJugadores = document.getElementsByClassName("jugador");
+        if (listaJugadores == undefined) return;
+        //para cada uno...
+        for (var i=0; i<listaJugadores.length;i++){
+            jugador = listaJugadores[i];
+                //leer su valor dataset.dir
+                var direccion = jugador.dataset.dir;
+                //cambiar su posicion en esa direccion
+                if(direccion == "a"){
+                    jugador.dataset.posx = Number(jugador.dataset.posx)-20;
+                } else if (direccion == "w"){
+                    jugador.dataset.posy = Number(jugador.dataset.posy)-20;
+                } else if (direccion == "s"){
+                    jugador.dataset.posy = Number(jugador.dataset.posy)+20;
+                } else if (direccion == "d"){
+                    jugador.dataset.posx = Number(jugador.dataset.posx)+20;
+                }
+                
+                //limitar rango de movimiento
+                if( jugador.dataset.posx < 0)  jugador.dataset.posx = 0;
+                if( jugador.dataset.posx > 500-20)  jugador.dataset.posx = 500-20;
+                if( jugador.dataset.posy < 0)  jugador.dataset.posy = 0;
+                if( jugador.dataset.posy > 500-20)  jugador.dataset.posy = 500-20;
+                
+                //dibujar al jugador en su nueva posicion
+                jugador.style.top = jugador.dataset.posy + "px";
+                jugador.style.left = jugador.dataset.posx + "px";
+        }
+        },500)
+
+
+</script>
+</html>
